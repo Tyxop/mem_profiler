@@ -271,20 +271,22 @@ function buildNetwork(data) {
 
 function nodeConfig(n) {
   const c = colorFor(n.type);
+  const isPersona = n.type === 'PERSONA';
   return {
     id: n.id, label: n.label, title: n.type,
     color:{ background:c.bg, border:c.border, highlight:{background:c.bg, border:'#fff'} },
     font:{ color:'#fff', size:13, face:'Segoe UI' },
-    borderWidth:2,
-    shape: n.type==='PERSONA'?'star':'dot',
-    size:  n.type==='PERSONA'?20:14,
+    borderWidth: isPersona ? 4 : 2,
+    borderDashes: false,
+    shape: 'dot',
+    size:  isPersona ? 22 : 14,
   };
 }
 
 function edgeConfig(e, i) {
   return {
     id:i, from:e.from, to:e.to, label:e.label,
-    font:{color:'#666', size:9, face:'Segoe UI', align:'middle'},
+    font:{color:'#666', size:9, face:'Segoe UI', align:'middle', strokeWidth:0},
     color:{color:'#2a2d3e', highlight:'#a78bfa', opacity:.8},
     arrows:{to:{enabled:true, scaleFactor:.55}},
     smooth: STYLES[currentStyle].edges.smooth,
