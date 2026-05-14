@@ -6,3 +6,4 @@ pydantic==2.10.3
 python-dotenv==1.0.1
 httpx==0.28.1
 rich==13.9.4
+customtkinter==5.2.2
