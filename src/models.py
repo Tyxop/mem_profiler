@@ -15,6 +15,7 @@ class ConversationInput(BaseModel):
     message: str
     session_id: str = "default"
     speaker: str = "usuario"
+    model: Optional[str] = None
 
 
 class QueryInput(BaseModel):
@@ -22,6 +23,7 @@ class QueryInput(BaseModel):
     session_id: str = "default"
     max_hops: int = Field(default=2, ge=1, le=4)
     max_nodes: int = Field(default=15, ge=1, le=50)
+    model: Optional[str] = None
 
 
 class ContextResponse(BaseModel):

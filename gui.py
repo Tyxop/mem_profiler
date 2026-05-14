@@ -61,8 +61,8 @@ def api_post(api: str, path: str, **kw) -> dict:
     return r.json()
 
 
-def fetch_context(api: str, query: str) -> str:
-    data = api_post(api, "/query", json={"query": query, "max_hops": 2})
+def fetch_context(api: str, query: str, model: str | None = None) -> str:
+    data = api_post(api, "/query", json={"query": query, "max_hops": 2, "model": model})
     return data.get("context", "")
 
 
@@ -76,8 +76,8 @@ def fetch_topic_ctx(api: str, topic: str) -> str:
     return "\n".join(lines)
 
 
-def store_message(api: str, message: str) -> list:
-    r = httpx.post(f"{api}/conversation", json={"message": message}, timeout=120)
+def store_message(api: str, message: str, model: str | None = None) -> list:
+    r = httpx.post(f"{api}/conversation", json={"message": message, "model": model}, timeout=120)
     r.raise_for_status()
     return r.json().get("triples", [])
 
@@ -723,7 +723,7 @@ Respuesta:"""
         # 1. Retrieve context
         context = ""
         try:
-            context = fetch_context(self.api, text)
+            context = fetch_context(self.api, text, model=self.model)
         except Exception as e:
             self.after(0, self._add_warn, f"Retrieval: {e}")
 
@@ -757,7 +757,7 @@ Respuesta:"""
 
         # 4. Extract triples and store
         try:
-            triples = store_message(self.api, text)
+            triples = store_message(self.api, text, model=self.model)
             if triples:
                 self.after(0, self._add_memory_tag, triples)
                 self.after(0, self._check_api)

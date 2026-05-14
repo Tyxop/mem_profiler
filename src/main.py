@@ -44,7 +44,7 @@ def process_conversation(body: ConversationInput):
     Recibe un mensaje de conversación, lo pasa por LMStudio para extraer
     tripletas S-P-O y las almacena en Neo4j.
     """
-    triples = llm.extract_triples(body.message)
+    triples = llm.extract_triples(body.message, model=body.model)
     stored = 0
     for t in triples:
         try:
@@ -70,6 +70,7 @@ def query_context(body: QueryInput):
         query=body.query,
         max_hops=body.max_hops,
         max_nodes=body.max_nodes,
+        model=body.model,
     )
 
 

@@ -51,15 +51,15 @@ class Retriever:
         self.graph = graph
         self.llm = llm
 
-    def _extract_intent(self, query: str) -> dict:
-        raw = self.llm._call(INTENT_PROMPT + query, temperature=0.1)
+    def _extract_intent(self, query: str, model: str | None = None) -> dict:
+        raw = self.llm._call(INTENT_PROMPT + query, temperature=0.1, model=model)
         try:
             return _parse_json(raw)
         except Exception:
             return {"seeds": ["Usuario"], "predicates": [], "types": [], "is_personal": True}
 
-    def retrieve(self, query: str, max_hops: int = 2, max_nodes: int = 15) -> ContextResponse:
-        intent = self._extract_intent(query)
+    def retrieve(self, query: str, max_hops: int = 2, max_nodes: int = 15, model: str | None = None) -> ContextResponse:
+        intent = self._extract_intent(query, model=model)
 
         seed_names: list[str] = []
 
@@ -116,7 +116,7 @@ class Retriever:
 
         triples_text = _triples_to_text(triples)
         prompt = CONTEXT_PROMPT.format(query=query, triples=triples_text)
-        summary = self.llm._call(prompt, temperature=0.2).strip()
+        summary = self.llm._call(prompt, temperature=0.2, model=model).strip()
 
         if summary == "NO_INFO":
             summary = ""

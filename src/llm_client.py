@@ -64,9 +64,9 @@ class LMStudioClient:
         )
         self.model = os.getenv("LMSTUDIO_MODEL", "local-model")
 
-    def _call(self, prompt: str, temperature: float = 0.1, timeout: float = 120) -> str:
+    def _call(self, prompt: str, temperature: float = 0.1, timeout: float = 120, model: str | None = None) -> str:
         response = self.client.chat.completions.create(
-            model=self.model,
+            model=model or self.model,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
             timeout=timeout,
@@ -85,8 +85,8 @@ class LMStudioClient:
             return json.loads(text)
         return []
 
-    def extract_triples(self, text: str) -> list[Triple]:
-        raw = self._call(EXTRACT_PROMPT + text)
+    def extract_triples(self, text: str, model: str | None = None) -> list[Triple]:
+        raw = self._call(EXTRACT_PROMPT + text, model=model)
         try:
             data = self._parse_json_array(raw)
             triples = []
@@ -125,7 +125,7 @@ Respuesta:"""
                 summary_lines.append(line)
         return "\n".join(summary_lines).strip(), entities
 
-    def build_context_summary(self, query: str, triples: list[dict]) -> str:
+    def build_context_summary(self, query: str, triples: list[dict], model: str | None = None) -> str:
         if not triples:
             return ""
         triples_text = "\n".join(
@@ -140,4 +140,4 @@ Grafo relevante:
 {triples_text}
 
 Resumen de contexto (directo, sin preámbulos):"""
-        return self._call(prompt, temperature=0.3)
+        return self._call(prompt, temperature=0.3, model=model)
