@@ -101,6 +101,37 @@ def list_branches():
     return {"branches": list(BRANCHES.keys()), "keywords": BRANCHES}
 
 
+@app.get("/topic/{name}/context", summary="Contexto completo de un tema para iniciar conversación")
+def get_topic_context(name: str):
+    """Devuelve tripletas + notas de memoria para pre-cargar una conversación sobre ese tema."""
+    ctx = graph.get_topic_context(name)
+    return {
+        "topic": name,
+        "triples": ctx["triples"],
+        "memory_notes": ctx["notes"],
+        "triples_count": len(ctx["triples"]),
+        "notes_count": len(ctx["notes"]),
+    }
+
+
+@app.post("/memory/note", summary="Guarda una nota de conversación con metadata")
+def save_memory_note(
+    topic: str,
+    summary: str,
+    entities: str = "",
+    session_id: str = "default",
+):
+    entity_list = [e.strip() for e in entities.split(",") if e.strip()]
+    note_id = graph.store_memory_note(topic, summary, entity_list, session_id)
+    return {"saved": True, "id": note_id}
+
+
+@app.get("/memory/notes", summary="Lista notas de conversación guardadas")
+def get_memory_notes(topic: str = None, limit: int = 20):
+    notes = graph.get_memory_notes(topic=topic, limit=limit)
+    return {"total": len(notes), "notes": notes}
+
+
 @app.delete("/triple", summary="Elimina una tripleta específica del grafo")
 def delete_triple(subject: str, predicate: str, object: str):
     graph.delete_triple(subject, predicate, object)

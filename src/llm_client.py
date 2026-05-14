@@ -69,6 +69,34 @@ class LMStudioClient:
         except (json.JSONDecodeError, Exception):
             return []
 
+    def summarize_conversation(self, history: list[dict], topic: str) -> tuple[str, list[str]]:
+        """Returns (summary_text, list_of_mentioned_entity_names)."""
+        if not history:
+            return "", []
+        convo = "\n".join(
+            f"{m['role'].upper()}: {m['content']}" for m in history[-12:]
+        )
+        prompt = f"""Resume en 2-3 frases los hechos clave de esta conversación sobre '{topic}'.
+Solo hechos concretos y útiles para recordar en el futuro. Sin preámbulos.
+Luego añade una línea "ENTIDADES:" con los nombres propios mencionados (separados por coma).
+
+Conversación:
+{convo}
+
+Respuesta:"""
+        raw = self._call(prompt, temperature=0.2)
+        lines = raw.strip().split("\n")
+        entities: list[str] = []
+        summary_lines = []
+        for line in lines:
+            if line.upper().startswith("ENTIDADES:"):
+                parts = line.split(":", 1)
+                if len(parts) > 1:
+                    entities = [e.strip() for e in parts[1].split(",") if e.strip()]
+            else:
+                summary_lines.append(line)
+        return "\n".join(summary_lines).strip(), entities
+
     def build_context_summary(self, query: str, triples: list[dict]) -> str:
         if not triples:
             return ""
