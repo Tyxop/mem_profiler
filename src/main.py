@@ -107,6 +107,12 @@ def delete_triple(subject: str, predicate: str, object: str):
     return {"deleted": True}
 
 
+@app.patch("/node/{name}", summary="Renombra un nodo")
+def rename_node(name: str, new_name: str):
+    graph.rename_node(name, new_name)
+    return {"renamed": True, "from": name, "to": new_name}
+
+
 @app.delete("/node/{name}", summary="Elimina un nodo y todas sus relaciones")
 def delete_node(name: str):
     graph.delete_node(name)

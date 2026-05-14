@@ -170,6 +170,14 @@ class GraphMemory:
                 object=object_,
             )
 
+    def rename_node(self, old_name: str, new_name: str):
+        with self.driver.session() as s:
+            s.run(
+                "MATCH (e:Entity {name: $old}) SET e.name = $new",
+                old=old_name,
+                new=new_name,
+            )
+
     def delete_node(self, name: str):
         with self.driver.session() as s:
             s.run(

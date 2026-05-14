@@ -37,7 +37,12 @@ VIZ_HTML = """<!DOCTYPE html>
 
     #detail-panel{flex:1;padding:12px 14px;overflow-y:auto}
     #detail-panel h3{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#555;margin-bottom:8px}
-    .detail-name{font-size:17px;font-weight:700;color:#fff;margin-bottom:3px}
+    .detail-name{font-size:17px;font-weight:700;color:#fff;margin-bottom:3px;display:flex;align-items:center;gap:7px}
+    .edit-btn{background:none;border:none;color:#555;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:13px;transition:color .15s;line-height:1}
+    .edit-btn:hover{color:#a78bfa;background:#2a2d3e}
+    .edit-input{background:#12151f;border:1px solid #6d28d9;border-radius:6px;color:#fff;font-size:15px;font-weight:700;padding:2px 8px;width:100%;outline:none}
+    .edit-actions{display:flex;gap:5px;margin-top:6px;margin-bottom:3px}
+    .edit-actions button{padding:3px 10px;font-size:11px}
     .detail-type{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
     .rel-item{display:flex;align-items:flex-start;gap:7px;margin-bottom:6px;padding:6px 8px;background:#12151f;border-radius:6px;font-size:12px;border:1px solid transparent;transition:border-color .15s}
     .rel-item:hover{border-color:#3a3d4e}
@@ -245,7 +250,18 @@ function onNetworkClick(params) {
     const node = nodesDS.get(selectedNode);
     const out = allEdges.filter(e=>e.from===selectedNode);
     const inc = allEdges.filter(e=>e.to===selectedNode);
-    let html = `<div class="detail-name">${node.label}</div><div class="detail-type">${node.title}</div>`;
+    let html = `<div class="detail-name">
+      <span id="node-label-text">${node.label}</span>
+      <button class="edit-btn" title="Editar nombre" onclick="startEditNode('${node.label}')">✏</button>
+    </div>
+    <div id="node-edit-area" style="display:none">
+      <input class="edit-input" id="node-edit-input" value="${node.label}">
+      <div class="edit-actions">
+        <button class="btn btn-green" onclick="saveNodeName('${node.label}')">Guardar</button>
+        <button class="btn" onclick="cancelEditNode('${node.label}')">Cancelar</button>
+      </div>
+    </div>
+    <div class="detail-type">${node.title}</div>`;
     if (out.length) {
       html += '<div style="font-size:10px;color:#444;margin-bottom:5px;text-transform:uppercase;letter-spacing:.8px">Salientes</div>';
       out.forEach(e => {
@@ -304,6 +320,32 @@ function updateDatalist() {
 function togglePhysics() {
   physicsOn = !physicsOn;
   network.setOptions({physics:{enabled:physicsOn}});
+}
+
+/* ── Edit node name ── */
+function startEditNode(currentName) {
+  document.getElementById('node-label-text').parentElement.style.display = 'none';
+  const area = document.getElementById('node-edit-area');
+  area.style.display = 'block';
+  const input = document.getElementById('node-edit-input');
+  input.value = currentName;
+  input.focus();
+  input.select();
+  input.onkeydown = e => { if(e.key==='Enter') saveNodeName(currentName); if(e.key==='Escape') cancelEditNode(currentName); };
+}
+
+function cancelEditNode(currentName) {
+  document.getElementById('node-edit-area').style.display = 'none';
+  document.getElementById('node-label-text').parentElement.style.display = 'flex';
+}
+
+async function saveNodeName(oldName) {
+  const newName = document.getElementById('node-edit-input').value.trim();
+  if (!newName || newName === oldName) { cancelEditNode(oldName); return; }
+  await fetch(`/node/${encodeURIComponent(oldName)}?new_name=${encodeURIComponent(newName)}`, {method:'PATCH'});
+  toast(`"${oldName}" renombrado a "${newName}"`);
+  selectedNode = newName;
+  await refresh();
 }
 
 /* ── Delete ── */
