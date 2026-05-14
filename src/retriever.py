@@ -1,5 +1,6 @@
 import json
 import re
+import threading
 from .graph_db import GraphMemory
 from .llm_client import LMStudioClient
 from .models import ContextResponse
@@ -109,10 +110,13 @@ class Retriever:
             relevant = [t for t in triples if t["predicate"] in intent["predicates"]]
             triples = relevant if relevant else triples
 
+        triples.sort(key=lambda t: t.get("weight", 1.0), reverse=True)
         triples = triples[: max_nodes * 3]
 
         if not triples:
             return ContextResponse(context="", triples_found=0, nodes=[], raw_triples=[])
+
+        threading.Thread(target=self.graph.touch_triples, args=(triples,), daemon=True).start()
 
         triples_text = _triples_to_text(triples)
         prompt = CONTEXT_PROMPT.format(query=query, triples=triples_text)

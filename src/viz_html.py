@@ -87,6 +87,12 @@ VIZ_HTML = """<!DOCTYPE html>
 
     #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1a1d27;border:1px solid #2a2d3e;color:#ddd;padding:7px 16px;border-radius:7px;font-size:12px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:200}
     #toast.show{opacity:1}
+
+    .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;margin:8px 0;padding:7px 9px;background:#12151f;border-radius:5px;border:1px solid #1e2130}
+    .meta-cell{display:flex;flex-direction:column;gap:1px}
+    .meta-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:#444}
+    .meta-val{font-size:11px;color:#a78bfa;font-weight:600}
+    .meta-full{grid-column:1/-1}
   </style>
 </head>
 <body>
@@ -269,6 +275,12 @@ function buildNetwork(data) {
   buildLegend(data.nodes);
 }
 
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('es-ES', {day:'numeric', month:'short', year:'numeric',
+    hour:'2-digit', minute:'2-digit'});
+}
+
 function nodeConfig(n) {
   const c = colorFor(n.type);
   const isPersona = n.type === 'PERSONA';
@@ -280,6 +292,10 @@ function nodeConfig(n) {
     borderDashes: false,
     shape: 'dot',
     size:  isPersona ? 22 : 14,
+    _weight: n.weight ?? 1.0,
+    _access_count: n.access_count ?? 0,
+    _created_at: n.created_at ?? null,
+    _last_accessed: n.last_accessed ?? null,
   };
 }
 
@@ -290,6 +306,11 @@ function edgeConfig(e, i) {
     color:{color:'#2a2d3e', highlight:'#a78bfa', opacity:.8},
     arrows:{to:{enabled:true, scaleFactor:.55}},
     smooth: STYLES[currentStyle].edges.smooth,
+    _weight: e.weight ?? 1.0,
+    _access_count: e.access_count ?? 0,
+    _confidence: e.confidence ?? 1.0,
+    _created_at: e.created_at ?? null,
+    _last_accessed: e.last_accessed ?? null,
   };
 }
 
@@ -387,7 +408,13 @@ function onNetworkClick(params) {
         <button class="btn" onclick="cancelEditNode()">Cancelar</button>
       </div>
     </div>
-    <div class="detail-type">${node.title}</div>`;
+    <div class="detail-type">${node.title}</div>
+    <div class="meta-grid">
+      <div class="meta-cell"><span class="meta-lbl">Peso</span><span class="meta-val">${(node._weight||1).toFixed(2)}</span></div>
+      <div class="meta-cell"><span class="meta-lbl">Accesos</span><span class="meta-val">${node._access_count||0}</span></div>
+      <div class="meta-cell meta-full"><span class="meta-lbl">Creado</span><span class="meta-val" style="color:#60a5fa">${fmtDate(node._created_at)}</span></div>
+      <div class="meta-cell meta-full"><span class="meta-lbl">Último acceso</span><span class="meta-val" style="color:#4ade80">${fmtDate(node._last_accessed)}</span></div>
+    </div>`;
 
     const relBlock = (arr, dir) => arr.map(e => `
       <div class="rel-row">
@@ -409,12 +436,19 @@ function onNetworkClick(params) {
     const edge = edgesDS.get(params.edges[0]);
     if (edge) {
       panel.innerHTML = `
-        <div style="margin-bottom:10px">
+        <div style="margin-bottom:6px">
           <div style="font-size:9px;color:#333;margin-bottom:3px">RELACIÓN</div>
           <div style="font-size:15px;font-weight:700;color:#a78bfa">${edge.label}</div>
         </div>
-        <div style="font-size:12px;color:#aaa"><b style="color:#ddd">${edge.from}</b> → <b style="color:#ddd">${edge.to}</b></div>
-        <button class="btn btn-red" style="margin-top:10px;width:100%;padding:6px"
+        <div style="font-size:12px;color:#aaa;margin-bottom:8px"><b style="color:#ddd">${edge.from}</b> → <b style="color:#ddd">${edge.to}</b></div>
+        <div class="meta-grid">
+          <div class="meta-cell"><span class="meta-lbl">Peso</span><span class="meta-val">${(edge._weight||1).toFixed(2)}</span></div>
+          <div class="meta-cell"><span class="meta-lbl">Accesos</span><span class="meta-val">${edge._access_count||0}</span></div>
+          <div class="meta-cell"><span class="meta-lbl">Confianza</span><span class="meta-val">${(edge._confidence||1).toFixed(2)}</span></div>
+          <div class="meta-cell meta-full"><span class="meta-lbl">Creado</span><span class="meta-val" style="color:#60a5fa">${fmtDate(edge._created_at)}</span></div>
+          <div class="meta-cell meta-full"><span class="meta-lbl">Último acceso</span><span class="meta-val" style="color:#4ade80">${fmtDate(edge._last_accessed)}</span></div>
+        </div>
+        <button class="btn btn-red" style="margin-top:6px;width:100%;padding:6px"
           onclick="deleteEdge('${edge.from}','${edge.label}','${edge.to}')">✕ Eliminar relación</button>`;
     }
   } else {

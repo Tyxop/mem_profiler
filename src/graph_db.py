@@ -104,11 +104,29 @@ class GraphMemory:
             s.run(
                 """
                 MERGE (sub:Entity {name: $subject})
-                SET sub.type = $subject_type, sub.updated_at = timestamp()
+                ON CREATE SET sub.type = $subject_type,
+                              sub.created_at = timestamp(),
+                              sub.last_accessed = timestamp(),
+                              sub.access_count = 0,
+                              sub.weight = 1.0
+                ON MATCH SET  sub.type = $subject_type,
+                              sub.updated_at = timestamp()
                 MERGE (obj:Entity {name: $object})
-                SET obj.type = $object_type, obj.updated_at = timestamp()
+                ON CREATE SET obj.type = $object_type,
+                              obj.created_at = timestamp(),
+                              obj.last_accessed = timestamp(),
+                              obj.access_count = 0,
+                              obj.weight = 1.0
+                ON MATCH SET  obj.type = $object_type,
+                              obj.updated_at = timestamp()
                 MERGE (sub)-[r:RELATION {name: $predicate}]->(obj)
-                SET r.confidence = $confidence, r.updated_at = timestamp()
+                ON CREATE SET r.confidence = $confidence,
+                              r.created_at = timestamp(),
+                              r.last_accessed = timestamp(),
+                              r.access_count = 0,
+                              r.weight = 1.0
+                ON MATCH SET  r.confidence = $confidence,
+                              r.updated_at = timestamp()
                 """,
                 subject=triple.subject,
                 subject_type=triple.subject_type,
@@ -116,6 +134,30 @@ class GraphMemory:
                 object_type=triple.object_type,
                 predicate=triple.predicate,
                 confidence=triple.confidence,
+            )
+
+    def touch_triples(self, triples: list[dict]):
+        if not triples:
+            return
+        now = int(time.time() * 1000)
+        records = [{"s": t["subject"], "p": t["predicate"], "o": t["object"]} for t in triples]
+        with self.driver.session() as s:
+            s.run(
+                """
+                UNWIND $records AS t
+                MATCH (s:Entity {name: t.s})-[r:RELATION {name: t.p}]->(o:Entity {name: t.o})
+                SET r.last_accessed = $now,
+                    r.access_count  = coalesce(r.access_count, 0) + 1,
+                    r.weight        = coalesce(r.weight, 1.0) + 0.1,
+                    s.last_accessed = $now,
+                    s.access_count  = coalesce(s.access_count, 0) + 1,
+                    s.weight        = coalesce(s.weight, 1.0) + 0.05,
+                    o.last_accessed = $now,
+                    o.access_count  = coalesce(o.access_count, 0) + 1,
+                    o.weight        = coalesce(o.weight, 1.0) + 0.05
+                """,
+                records=records,
+                now=now,
             )
 
     # ── Search & retrieval ───────────────────────────────────────────────────
@@ -189,6 +231,8 @@ class GraphMemory:
                     WHERE start.name IN $names OR end.name IN $names
                     RETURN start.name AS subject, start.type AS subject_type,
                            r.name AS predicate,
+                           coalesce(r.weight, 1.0) AS weight,
+                           coalesce(r.access_count, 0) AS access_count,
                            end.name AS object, end.type AS object_type
                     """,
                     names=list(frontier),
@@ -368,6 +412,36 @@ class GraphMemory:
                         seen.add(key)
 
         return {"triples": branch_triples, "notes": notes}
+
+    def get_graph_data(self) -> dict:
+        with self.driver.session() as s:
+            nodes_result = s.run(
+                """
+                MATCH (e:Entity)
+                RETURN e.name AS id, e.name AS label, e.type AS type,
+                       coalesce(e.weight, 1.0)       AS weight,
+                       coalesce(e.access_count, 0)   AS access_count,
+                       e.created_at                  AS created_at,
+                       e.last_accessed               AS last_accessed
+                """
+            )
+            edges_result = s.run(
+                """
+                MATCH (s:Entity)-[r:RELATION]->(o:Entity)
+                RETURN s.name AS from, o.name AS to, r.name AS label,
+                       coalesce(r.weight, 1.0)       AS weight,
+                       coalesce(r.access_count, 0)   AS access_count,
+                       coalesce(r.confidence, 1.0)   AS confidence,
+                       r.created_at                  AS created_at,
+                       r.last_accessed               AS last_accessed
+                ORDER BY r.weight DESC
+                """
+            )
+            nodes = [dict(r) for r in nodes_result]
+            edges = [dict(r) for r in edges_result]
+            for i, e in enumerate(edges):
+                e["id"] = i
+            return {"nodes": nodes, "edges": edges}
 
     # ── Mutations ────────────────────────────────────────────────────────────
 
