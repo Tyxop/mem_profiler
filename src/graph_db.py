@@ -2,6 +2,11 @@ import os
 from neo4j import GraphDatabase
 from .models import Triple
 
+SINGULAR_PREDICATES = {
+    "VIVE_EN", "TRABAJA_EN", "TIENE_EDAD", "TIENE_PROFESION",
+    "TIENE_ESTADO", "FECHA_NACIMIENTO", "TIENE_NOMBRE", "ES_DE",
+}
+
 BRANCHES = {
     "perfil": ["PERSONA", "EDAD", "NOMBRE", "GENERO"],
     "ubicacion": ["LUGAR", "VIVE_EN", "TRABAJA_EN", "CIUDAD", "PAIS"],
@@ -36,6 +41,20 @@ class GraphMemory:
             except Exception:
                 pass
 
+    def upsert_triple(self, triple: Triple):
+        """For singular predicates (VIVE_EN, etc.) replaces old value instead of adding."""
+        if triple.predicate in SINGULAR_PREDICATES:
+            with self.driver.session() as s:
+                s.run(
+                    """
+                    MATCH (sub:Entity {name: $subject})-[r:RELATION {name: $predicate}]->()
+                    DELETE r
+                    """,
+                    subject=triple.subject,
+                    predicate=triple.predicate,
+                )
+        self.store_triple(triple)
+
     def store_triple(self, triple: Triple):
         with self.driver.session() as s:
             s.run(
@@ -54,6 +73,31 @@ class GraphMemory:
                 predicate=triple.predicate,
                 confidence=triple.confidence,
             )
+
+    def get_nodes_by_predicate(self, predicates: list[str]) -> list[str]:
+        """Return all node names that appear in triples with given predicates."""
+        with self.driver.session() as s:
+            result = s.run(
+                """
+                MATCH (s:Entity)-[r:RELATION]->(o:Entity)
+                WHERE r.name IN $predicates
+                RETURN DISTINCT s.name AS name
+                UNION
+                MATCH (s:Entity)-[r:RELATION]->(o:Entity)
+                WHERE r.name IN $predicates
+                RETURN DISTINCT o.name AS name
+                """,
+                predicates=predicates,
+            )
+            return [r["name"] for r in result]
+
+    def get_nodes_by_type(self, types: list[str]) -> list[str]:
+        with self.driver.session() as s:
+            result = s.run(
+                "MATCH (e:Entity) WHERE e.type IN $types RETURN e.name AS name",
+                types=types,
+            )
+            return [r["name"] for r in result]
 
     def search_nodes(self, query: str, limit: int = 5) -> list[str]:
         """Fulltext search, falls back to CONTAINS if index missing."""

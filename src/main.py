@@ -48,7 +48,7 @@ def process_conversation(body: ConversationInput):
     stored = 0
     for t in triples:
         try:
-            graph.store_triple(t)
+            graph.upsert_triple(t)
             stored += 1
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error guardando tripleta: {e}")
