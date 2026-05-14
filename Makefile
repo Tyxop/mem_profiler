@@ -36,3 +36,9 @@ test-profile:
 
 shell:
 	docker compose exec api bash
+
+backup:
+	@bash backup.sh backup
+
+restore:
+	@bash backup.sh restore
