@@ -1,3 +1,5 @@
+name: mem_profiler
+
 services:
   neo4j:
     image: neo4j:5.15
