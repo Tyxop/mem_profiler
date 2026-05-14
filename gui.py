@@ -100,6 +100,14 @@ def fetch_graph_count(api: str) -> int:
     return api_get(api, "/profile").get("total", 0)
 
 
+def fetch_auto_branches(api: str) -> list:
+    return api_get(api, "/branches/auto").get("branches", [])
+
+
+def fetch_subtree(api: str, node_name: str) -> list:
+    return api_get(api, f"/subtree/{node_name}").get("triples", [])
+
+
 # ── Dialog windows ────────────────────────────────────────────────────────────
 
 class TableDialog(ctk.CTkToplevel):
@@ -196,6 +204,7 @@ class GraphMemoryApp(ctk.CTk):
         self._set_active_topic_btn("general")
         self._update_status("Conectando…")
         threading.Thread(target=self._check_api, daemon=True).start()
+        threading.Thread(target=self._fetch_and_render_branches, daemon=True).start()
 
     # ── Data ─────────────────────────────────────────────────────────────────
 
@@ -224,37 +233,56 @@ class GraphMemoryApp(ctk.CTk):
         self.main_frame.grid_columnconfigure(0, weight=1)
         self._build_main()
 
+    def _sidebar_label(self, text: str):
+        ctk.CTkLabel(
+            self.sidebar, text=text,
+            font=ctk.CTkFont(size=9), text_color=COLORS["info"],
+        ).pack(pady=(8, 2), padx=14, anchor="w")
+
     def _build_sidebar(self):
-        # Header
         ctk.CTkLabel(
             self.sidebar, text="⬡ Graph Memory",
             font=ctk.CTkFont(size=15, weight="bold"),
             text_color=COLORS["topic"],
         ).pack(pady=(18, 2), padx=14, anchor="w")
 
-        ctk.CTkLabel(
-            self.sidebar, text="Conversaciones",
-            font=ctk.CTkFont(size=10), text_color=COLORS["info"],
-        ).pack(pady=(0, 6), padx=14, anchor="w")
+        # ── Conversaciones ───────────────────────────────────────────────────
+        self._sidebar_label("CONVERSACIONES")
 
         ctk.CTkButton(
             self.sidebar, text="＋  Nueva conversación",
             command=self._new_conversation,
             fg_color=COLORS["border"], hover_color="#3a3d4e",
-            height=30, font=ctk.CTkFont(size=12), anchor="w",
-        ).pack(padx=10, pady=(0, 6), fill="x")
+            height=28, font=ctk.CTkFont(size=12), anchor="w",
+        ).pack(padx=10, pady=(0, 4), fill="x")
 
-        # Conversation list
         self.conv_scroll = ctk.CTkScrollableFrame(
-            self.sidebar, fg_color="transparent", height=260,
+            self.sidebar, fg_color="transparent", height=110,
         )
-        self.conv_scroll.pack(padx=6, fill="both", expand=True)
+        self.conv_scroll.pack(padx=6, fill="x")
 
-        # Divider
+        # ── Ramas del grafo (auto) ───────────────────────────────────────────
         ctk.CTkFrame(self.sidebar, height=1,
-                     fg_color=COLORS["border"]).pack(fill="x", padx=10, pady=10)
+                     fg_color=COLORS["border"]).pack(fill="x", padx=10, pady=(8, 0))
+        self._sidebar_label("RAMAS DEL GRAFO")
 
-        # Action buttons
+        self.branch_scroll = ctk.CTkScrollableFrame(
+            self.sidebar, fg_color="transparent", height=180,
+        )
+        self.branch_scroll.pack(padx=6, fill="x")
+
+        ctk.CTkButton(
+            self.sidebar, text="↻  Actualizar",
+            command=self._reload_branches,
+            fg_color="transparent", hover_color=COLORS["border"],
+            height=22, font=ctk.CTkFont(size=10),
+            text_color=COLORS["info"], anchor="w",
+        ).pack(padx=10, pady=(2, 2), fill="x")
+
+        # ── Acciones ─────────────────────────────────────────────────────────
+        ctk.CTkFrame(self.sidebar, height=1,
+                     fg_color=COLORS["border"]).pack(fill="x", padx=10, pady=(4, 0))
+
         actions = [
             ("🌐   Abrir visualizador", self._open_viz,     "#2d1b69", "#4c1d95"),
             ("📊   Ver perfil",          self._show_profile, "#1e3a5f", "#1d4ed8"),
@@ -265,15 +293,14 @@ class GraphMemoryApp(ctk.CTk):
             ctk.CTkButton(
                 self.sidebar, text=label, command=cmd,
                 fg_color=fg, hover_color=hv,
-                height=30, font=ctk.CTkFont(size=12), anchor="w",
+                height=28, font=ctk.CTkFont(size=12), anchor="w",
             ).pack(padx=10, pady=2, fill="x")
 
-        # Status
         self.status_var = tk.StringVar(value="")
         ctk.CTkLabel(
             self.sidebar, textvariable=self.status_var,
             font=ctk.CTkFont(size=10), text_color=COLORS["info"],
-        ).pack(pady=(10, 6))
+        ).pack(pady=(8, 4))
 
     def _build_main(self):
         # Topic bar
@@ -370,6 +397,81 @@ class GraphMemoryApp(ctk.CTk):
                         font=(FONT_NAME, 11, "italic"), lmargin1=8)
         t.tag_configure("topic_hdr",  foreground=COLORS["topic"],
                         font=(FONT_NAME, 12, "bold"), justify="center")
+
+    # ── Branches (auto-discovered from graph) ────────────────────────────────
+
+    def _reload_branches(self):
+        threading.Thread(target=self._fetch_and_render_branches, daemon=True).start()
+
+    def _fetch_and_render_branches(self):
+        try:
+            branches = fetch_auto_branches(self.api)
+            self.after(0, self._render_branch_buttons, branches)
+        except Exception as e:
+            self.after(0, self._update_status, f"Error ramas: {e}")
+
+    def _render_branch_buttons(self, branches: list):
+        for w in self.branch_scroll.winfo_children():
+            w.destroy()
+
+        if not branches:
+            ctk.CTkLabel(
+                self.branch_scroll, text="  Sin ramas aún",
+                font=ctk.CTkFont(size=11), text_color=COLORS["info"],
+            ).pack(anchor="w", padx=4)
+            return
+
+        TYPE_ICONS = {
+            "ENTRETENIMIENTO": "🎬", "GENERO": "🏷", "SUBTEMA": "🔖",
+            "DIRECTOR": "🎥", "PELICULA": "🎞", "MUSICA": "🎵",
+            "ARTISTA": "🎤", "LIBRO": "📚", "AUTOR": "✍",
+            "DEPORTE": "⚽", "LUGAR": "📍", "MASCOTA": "🐾",
+            "TECNOLOGIA": "💻", "COMIDA": "🍽", "TRABAJO": "💼",
+            "EMPRESA": "🏢", "CONCEPTO": "💡",
+        }
+
+        for b in branches:
+            name     = b["name"]
+            btype    = b.get("type", "")
+            children = b.get("children", 0)
+            icon     = TYPE_ICONS.get(btype, "⬡")
+            label    = f"  {icon}  {name}  ({children})"
+
+            ctk.CTkButton(
+                self.branch_scroll,
+                text=label,
+                command=lambda n=name: self._show_subtree(n),
+                fg_color="transparent",
+                hover_color=COLORS["border"],
+                text_color="#c4b5fd",
+                height=26,
+                font=ctk.CTkFont(size=12),
+                anchor="w",
+                corner_radius=6,
+            ).pack(fill="x", pady=1, padx=4)
+
+    def _show_subtree(self, node_name: str):
+        """Show the subtree of a graph branch in the chat area."""
+        def _fetch():
+            try:
+                triples = fetch_subtree(self.api, node_name)
+                self.after(0, self._render_subtree, node_name, triples)
+            except Exception as e:
+                self.after(0, self._add_warn, f"Error: {e}")
+
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def _render_subtree(self, node_name: str, triples: list):
+        self._add_separator()
+        self._chat_append(f"\n  Subárbol: {node_name}\n", "topic_hdr")
+        if not triples:
+            self._add_info(f"No hay tripletas bajo '{node_name}'.")
+            return
+        for t in triples:
+            self._chat_append(
+                f"  ({t['subject']}) --[{t['predicate']}]--> ({t['object']})\n",
+                "memory",
+            )
 
     # ── Conversation list ─────────────────────────────────────────────────────
 
@@ -616,6 +718,10 @@ Respuesta:"""
             if triples:
                 self.after(0, self._add_memory_tag, triples)
                 self.after(0, self._check_api)
+                # Refresh auto branches so new topics appear immediately
+                threading.Thread(
+                    target=self._fetch_and_render_branches, daemon=True
+                ).start()
         except Exception as e:
             self.after(0, self._add_warn, f"Store: {e}")
 

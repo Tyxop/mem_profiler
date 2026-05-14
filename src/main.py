@@ -101,6 +101,25 @@ def list_branches():
     return {"branches": list(BRANCHES.keys()), "keywords": BRANCHES}
 
 
+@app.get("/branches/auto", summary="Ramas descubiertas automáticamente del grafo")
+def auto_branches():
+    """
+    Devuelve los nodos intermedios del grafo (los que tienen hijos),
+    que son las ramas naturales del árbol de conocimiento.
+    Estas ramas se generan solas cuando el LLM crea nuevos nodos.
+    """
+    branches = graph.get_auto_branches()
+    return {"total": len(branches), "branches": branches}
+
+
+@app.get("/subtree/{node_name}", summary="Subárbol de un nodo")
+def get_subtree(node_name: str, hops: int = 3):
+    """Devuelve todas las tripletas del subárbol que cuelga de un nodo."""
+    triples = graph.get_subtree(node_name, hops=hops)
+    nodes = list({t["subject"] for t in triples} | {t["object"] for t in triples})
+    return {"root": node_name, "triples": triples, "nodes": nodes, "total": len(triples)}
+
+
 @app.get("/topic/{name}/context", summary="Contexto completo de un tema para iniciar conversación")
 def get_topic_context(name: str):
     """Devuelve tripletas + notas de memoria para pre-cargar una conversación sobre ese tema."""

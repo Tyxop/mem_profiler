@@ -323,6 +323,33 @@ class GraphMemory:
                 )
             return [dict(r) for r in result]
 
+    def get_auto_branches(self) -> list[dict]:
+        """
+        Discovers branches dynamically from the graph structure.
+        A branch is any node that has at least one outgoing relation
+        (i.e., it has children — it's an intermediate node, not a leaf).
+        Returns nodes sorted by number of children descending.
+        """
+        with self.driver.session() as s:
+            result = s.run(
+                """
+                MATCH (branch:Entity)-[r:RELATION]->(child:Entity)
+                WITH branch, count(DISTINCT child) AS children,
+                     collect(DISTINCT r.name)[..5] AS sample_predicates
+                WHERE children >= 1
+                RETURN branch.name AS name,
+                       branch.type AS type,
+                       children,
+                       sample_predicates
+                ORDER BY children DESC
+                """
+            )
+            return [dict(r) for r in result]
+
+    def get_subtree(self, node_name: str, hops: int = 3) -> list[dict]:
+        """Returns all triples in the subtree rooted at node_name."""
+        return self.get_neighborhood([node_name], hops=hops)
+
     def get_topic_context(self, topic: str) -> dict:
         """Returns graph triples + memory notes for a topic, ready to seed a conversation."""
         branch_triples = self.get_branch(topic)
