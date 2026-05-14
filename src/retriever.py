@@ -4,15 +4,18 @@ from .graph_db import GraphMemory
 from .llm_client import LMStudioClient
 from .models import ContextResponse
 
-INTENT_PROMPT = """Analiza este mensaje y extrae información para buscar en un grafo de memoria personal.
+INTENT_PROMPT = """Analiza este mensaje y extrae información para buscar en un grafo de memoria en árbol.
 
-El grafo tiene nodos con nombres reales (ej: "Madrid", "Toby", "Usuario") y tipos: PERSONA, LUGAR, MASCOTA, HOBBIE, CONDICION, ESTADO, TRABAJO, COMIDA, FECHA, ENTIDAD.
-Las relaciones (predicados) son: VIVE_EN, TIENE_MASCOTA, PREFIERE, TRABAJA_EN, TIENE_ESTADO, CONOCE, ES_UN, TIENE_CARACTERISTICA, REALIZA, etc.
+El grafo tiene nodos con nombres reales (ej: "Madrid", "Toby", "Cine", "Ciencia Ficción", "Christopher Nolan")
+y tipos: PERSONA, LUGAR, MASCOTA, ENTRETENIMIENTO, GENERO, SUBTEMA, DIRECTOR, PELICULA, MUSICA, ARTISTA,
+LIBRO, AUTOR, DEPORTE, EQUIPO, COMIDA, TRABAJO, EMPRESA, TECNOLOGIA, HOBBIE, ESTADO, CONDICION, CONCEPTO.
 
-Devuelve SOLO un JSON válido con:
-- "seeds": nombres de nodos a buscar directamente (siempre incluye "Usuario" si la pregunta es personal)
-- "predicates": predicados relevantes para filtrar
-- "types": tipos de nodo que podrían contener la respuesta
+Las relaciones forman árboles: Usuario→LE_GUSTA→Cine→GENERO_PREFERIDO→Ciencia Ficción→DIRECTOR_FAVORITO→Nolan
+
+Devuelve SOLO un JSON con:
+- "seeds": nombres de nodos clave a buscar (incluye "Usuario" si la pregunta es personal; incluye nombres propios de entidades como "Cine", "Ciencia Ficción")
+- "predicates": predicados relevantes (GENERO_PREFERIDO, DIRECTOR_FAVORITO, VIVE_EN, etc.)
+- "types": tipos de nodo que contienen la respuesta (GENERO, DIRECTOR, LUGAR, etc.)
 - "is_personal": true si la pregunta es sobre el propio usuario
 
 Mensaje: """

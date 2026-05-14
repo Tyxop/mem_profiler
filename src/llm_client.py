@@ -4,21 +4,48 @@ import os
 from openai import OpenAI
 from .models import Triple
 
-EXTRACT_PROMPT = """Eres un extractor de conocimiento para un grafo de memoria. Tu tarea es extraer hechos permanentes o semipermanentes del texto.
+EXTRACT_PROMPT = """Eres un extractor de conocimiento para un grafo de memoria en árbol.
+Tu tarea: convertir texto en tripletas S-P-O que formen un ÁRBOL de entidades relacionadas, NO una lista plana.
 
-REGLAS:
-- Solo extrae hechos que valga la pena recordar (preferencias, relaciones, estados, datos personales, eventos importantes)
-- Ignora saludos, frases vacías, o información efímera
-- El sujeto "Usuario" siempre se refiere a la persona con quien hablo
-- Usa predicados en MAYUSCULAS_CON_GUION_BAJO (VIVE_EN, PREFIERE, TIENE, ES_UN, TRABAJA_EN, etc.)
-- Sé conciso: objeto máximo 5 palabras, añade detalles como propiedades JSON en "object_properties"
+REGLA FUNDAMENTAL — CONSTRUYE ÁRBOLES:
+Conecta al Usuario solo el nodo raíz de cada tema. Desde ese nodo, crea ramas hacia subtipos, detalles, épocas, personas, etc.
 
-Devuelve SOLO un array JSON válido. Sin explicaciones. Sin markdown.
+CORRECTO (árbol):
+Texto: "Me encanta el cine de ciencia ficción, sobre todo las distopías de los 80 y Christopher Nolan"
+[
+  {"subject": "Usuario", "subject_type": "PERSONA", "predicate": "LE_GUSTA", "object": "Cine", "object_type": "ENTRETENIMIENTO"},
+  {"subject": "Cine", "subject_type": "ENTRETENIMIENTO", "predicate": "GENERO_PREFERIDO", "object": "Ciencia Ficción", "object_type": "GENERO"},
+  {"subject": "Ciencia Ficción", "subject_type": "GENERO", "predicate": "SUBTEMA_PREFERIDO", "object": "Distopía", "object_type": "SUBTEMA"},
+  {"subject": "Distopía", "subject_type": "SUBTEMA", "predicate": "EPOCA_PREFERIDA", "object": "Años 80", "object_type": "EPOCA"},
+  {"subject": "Ciencia Ficción", "subject_type": "GENERO", "predicate": "DIRECTOR_FAVORITO", "object": "Christopher Nolan", "object_type": "DIRECTOR"}
+]
 
-Formato de cada tripleta:
-{"subject": "...", "subject_type": "TIPO", "predicate": "PREDICADO", "object": "...", "object_type": "TIPO"}
+INCORRECTO (todo plano al usuario — NUNCA hagas esto):
+[
+  {"subject": "Usuario", "predicate": "LE_GUSTA", "object": "Cine de ciencia ficción"},
+  {"subject": "Usuario", "predicate": "LE_GUSTA", "object": "Distopías de los 80"},
+  {"subject": "Usuario", "predicate": "DIRECTOR_FAVORITO", "object": "Christopher Nolan"}
+]
 
-Tipos válidos: PERSONA, LUGAR, MASCOTA, COMIDA, TRABAJO, HOBBIE, ESTADO, CONDICION, FECHA, OBJETO, ENTIDAD
+MÁS EJEMPLOS DE ÁRBOL:
+- Mascotas: (Usuario)-[TIENE_MASCOTA]->(Toby) → (Toby)-[ES_UN]->(Perro) → (Toby)-[TIENE_ESTADO]->(Enfermo)
+- Trabajo: (Usuario)-[TRABAJA_EN]->(Empresa X) → (Empresa X)-[SECTOR]->(Tecnología) → (Empresa X)-[ROL_USUARIO]->(Developer)
+- Música: (Usuario)-[LE_GUSTA]->(Música) → (Música)-[GENERO_PREFERIDO]->(Jazz) → (Jazz)-[ARTISTA_FAVORITO]->(Miles Davis)
+
+TIPOS DE NODO: PERSONA, ENTRETENIMIENTO, GENERO, SUBTEMA, EPOCA, DIRECTOR, PELICULA, SERIE, LIBRO, AUTOR,
+MUSICA, ARTISTA, ALBUM, DEPORTE, EQUIPO, LUGAR, MASCOTA, COMIDA, TRABAJO, EMPRESA, TECNOLOGIA,
+HOBBIE, ESTADO, CONDICION, CONCEPTO, FECHA, OBJETO
+
+PREDICADOS: usa verbos específicos del dominio. No todo es PREFIERE.
+Cine: GENERO_PREFERIDO, DIRECTOR_FAVORITO, PELICULA_FAVORITA, SUBTEMA_PREFERIDO, EPOCA_PREFERIDA
+Mascotas: TIENE_MASCOTA, ES_UN, TIENE_ESTADO, PREFIERE, VIVE_CON
+Trabajo: TRABAJA_EN, TIENE_ROL, USA_TECNOLOGIA, PROGRAMA_EN
+
+REGLAS FINALES:
+- Solo extrae hechos permanentes o semipermanentes (ignora saludos e info efímera)
+- El objeto debe ser un sustantivo concreto (máximo 4 palabras)
+- Si el texto habla de un tema sin mencionar al usuario directamente, conéctalo igualmente al árbol de ese tema
+- Devuelve SOLO el array JSON. Sin markdown. Sin explicaciones.
 
 Texto a analizar:
 """

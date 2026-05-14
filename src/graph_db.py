@@ -4,28 +4,62 @@ from neo4j import GraphDatabase
 from .models import Triple
 
 SINGULAR_PREDICATES = {
+    # Solo predicados verdaderamente únicos (un valor posible)
     "VIVE_EN", "TRABAJA_EN", "TIENE_EDAD", "TIENE_PROFESION",
     "TIENE_ESTADO", "FECHA_NACIMIENTO", "TIENE_NOMBRE", "ES_DE",
 }
 
 BRANCHES = {
-    # Perfil personal
-    "perfil":               ["TIENE_NOMBRE", "TIENE_EDAD", "TIENE_GENERO", "FECHA_NACIMIENTO", "ES_DE", "PERSONA"],
-    "ubicacion":            ["VIVE_EN", "LUGAR", "CIUDAD", "PAIS", "DIRECCION"],
-    "trabajo":              ["TRABAJA_EN", "TIENE_PROFESION", "ROL", "EMPRESA", "TRABAJO", "PROFESION"],
-    "salud":                ["TIENE_CONDICION", "TIENE_ENFERMEDAD", "TOMA_MEDICACION", "ALERGIA", "CONDICION", "ENFERMEDAD"],
-    "relaciones":           ["CONOCE", "AMIGO", "PAREJA", "TIENE_HIJO", "FAMILIA", "HERMANO", "PADRE", "MADRE"],
+    # ── Perfil personal ──────────────────────────────────────────────────────
+    "perfil":       ["TIENE_NOMBRE", "TIENE_EDAD", "TIENE_GENERO", "FECHA_NACIMIENTO", "ES_DE", "PERSONA"],
+    "ubicacion":    ["VIVE_EN", "LUGAR", "CIUDAD", "PAIS", "DIRECCION"],
+    "trabajo":      ["TRABAJA_EN", "TIENE_PROFESION", "ROL", "EMPRESA", "TRABAJO", "PROFESION",
+                     "TIENE_ROL", "USA_TECNOLOGIA", "PROGRAMA_EN"],
+    "salud":        ["TIENE_CONDICION", "TIENE_ENFERMEDAD", "TOMA_MEDICACION", "ALERGIA",
+                     "CONDICION", "ENFERMEDAD"],
+    "relaciones":   ["CONOCE", "AMIGO", "PAREJA", "TIENE_HIJO", "FAMILIA",
+                     "HERMANO", "PADRE", "MADRE"],
 
-    # Mascotas personales (conectadas al usuario)
-    "mascotas":             ["TIENE_MASCOTA", "TIENE_ANIMAL", "MASCOTA"],
-    "mascotas_especie":     ["ES_UN", "ESPECIE", "RAZA", "TIPO_ANIMAL"],
-    "mascotas_salud":       ["TIENE_ESTADO", "ESTADO", "ENFERMEDAD", "MEDICACION"],
-    "mascotas_comportamiento": ["PREFIERE", "HOBBIE", "JUEGA_CON", "COME", "DUERME_EN"],
+    # ── Mascotas ─────────────────────────────────────────────────────────────
+    "mascotas":              ["TIENE_MASCOTA", "TIENE_ANIMAL", "MASCOTA"],
+    "mascotas_especie":      ["ES_UN", "ESPECIE", "RAZA", "TIPO_ANIMAL"],
+    "mascotas_salud":        ["TIENE_ESTADO", "ESTADO", "ENFERMEDAD", "MEDICACION"],
+    "mascotas_comportamiento": ["PREFIERE", "JUEGA_CON", "COME", "DUERME_EN"],
 
-    # Intereses y preferencias
-    "preferencias":         ["PREFIERE", "GUSTA", "DETESTA", "FAVORITO", "HOBBIE"],
-    "comida":               ["COME", "PREFIERE_COMER", "DETESTA_COMER", "DIETA", "COMIDA", "ALERGIA_COMIDA"],
-    "tecnologia":           ["USA", "PROGRAMA_EN", "TRABAJA_CON", "HERRAMIENTA", "LENGUAJE", "REALIZA"],
+    # ── Cine y series ────────────────────────────────────────────────────────
+    "cine":          ["LE_GUSTA", "ENTRETENIMIENTO", "PELICULA_FAVORITA", "SERIE_FAVORITA"],
+    "cine_genero":   ["GENERO_PREFERIDO", "GENERO", "SUBTEMA_PREFERIDO", "SUBTEMA"],
+    "cine_director": ["DIRECTOR_FAVORITO", "DIRECTOR", "DIRIGIDA_POR"],
+    "cine_epoca":    ["EPOCA_PREFERIDA", "EPOCA", "DECADA"],
+    "cine_pelicula": ["PELICULA_FAVORITA", "PELICULA", "TITULO"],
+
+    # ── Música ───────────────────────────────────────────────────────────────
+    "musica":        ["LE_GUSTA", "MUSICA", "GENERO_MUSICAL", "ARTISTA_FAVORITO",
+                      "ALBUM_FAVORITO", "CANCION_FAVORITA"],
+    "musica_genero": ["GENERO_MUSICAL", "GENERO", "SUBGENERO"],
+    "musica_artista":["ARTISTA_FAVORITO", "ARTISTA", "BANDA"],
+
+    # ── Libros ───────────────────────────────────────────────────────────────
+    "libros":        ["LIBRO_FAVORITO", "AUTOR_FAVORITO", "GENERO_LITERARIO",
+                      "LIBRO", "AUTOR", "SAGA_FAVORITA"],
+
+    # ── Deportes ─────────────────────────────────────────────────────────────
+    "deportes":      ["DEPORTE_FAVORITO", "EQUIPO_FAVORITO", "PRACTICA",
+                      "DEPORTE", "EQUIPO", "JUGADOR_FAVORITO"],
+
+    # ── Viajes ───────────────────────────────────────────────────────────────
+    "viajes":        ["VIAJADO_A", "QUIERE_VISITAR", "LUGAR_FAVORITO", "DESTINO"],
+
+    # ── Comida ───────────────────────────────────────────────────────────────
+    "comida":        ["COME", "PREFIERE_COMER", "DETESTA_COMER", "DIETA",
+                      "COMIDA", "ALERGIA_COMIDA", "COCINA_FAVORITA"],
+
+    # ── Tecnología ───────────────────────────────────────────────────────────
+    "tecnologia":    ["USA", "PROGRAMA_EN", "TRABAJA_CON", "HERRAMIENTA",
+                      "LENGUAJE", "REALIZA", "USA_TECNOLOGIA"],
+
+    # ── Intereses generales ───────────────────────────────────────────────────
+    "preferencias":  ["LE_GUSTA", "PREFIERE", "DETESTA", "FAVORITO", "HOBBIE"],
 }
 
 
