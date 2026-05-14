@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from .viz_html import VIZ_HTML
 
 from .models import (
     ConversationInput,
@@ -103,6 +104,25 @@ def list_branches():
 def delete_triple(subject: str, predicate: str, object: str):
     graph.delete_triple(subject, predicate, object)
     return {"deleted": True}
+
+
+@app.get("/viz", response_class=HTMLResponse, summary="Visualización interactiva del grafo")
+def viz():
+    return VIZ_HTML
+
+
+@app.get("/api/graph", summary="Datos del grafo en formato vis-network")
+def get_graph_data():
+    triples = graph.get_all_triples()
+    nodes: dict[str, dict] = {}
+    edges = []
+    for t in triples:
+        if t["subject"] not in nodes:
+            nodes[t["subject"]] = {"id": t["subject"], "label": t["subject"], "type": t["subject_type"]}
+        if t["object"] not in nodes:
+            nodes[t["object"]] = {"id": t["object"], "label": t["object"], "type": t["object_type"]}
+        edges.append({"from": t["subject"], "to": t["object"], "label": t["predicate"]})
+    return {"nodes": list(nodes.values()), "edges": edges}
 
 
 @app.get("/health")
