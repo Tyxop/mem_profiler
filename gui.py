@@ -101,6 +101,12 @@ def fetch_graph_count(api: str) -> int:
     return api_get(api, "/profile").get("total", 0)
 
 
+def fetch_lm_models(lmstudio_url: str) -> list[str]:
+    r = httpx.get(f"{lmstudio_url}/models", timeout=10)
+    r.raise_for_status()
+    return [m["id"] for m in r.json().get("data", [])]
+
+
 def fetch_auto_branches(api: str) -> list:
     return api_get(api, "/branches/auto").get("branches", [])
 
@@ -185,10 +191,11 @@ class GraphMemoryApp(ctk.CTk):
     def __init__(self, api: str, lmstudio_url: str, model: str):
         super().__init__()
 
-        self.api        = api
-        self.llm        = OpenAI(base_url=lmstudio_url, api_key="lm-studio")
-        self.model      = model
-        self.session_id = str(uuid.uuid4())[:8]
+        self.api          = api
+        self.lmstudio_url = lmstudio_url
+        self.llm          = OpenAI(base_url=lmstudio_url, api_key="lm-studio")
+        self.model        = model
+        self.session_id   = str(uuid.uuid4())[:8]
 
         # State per conversation topic
         self.conversations: dict[str, dict] = {}
@@ -204,8 +211,9 @@ class GraphMemoryApp(ctk.CTk):
         self._refresh_conv_buttons()
         self._set_active_topic_btn("general")
         self._update_status("Conectando…")
-        threading.Thread(target=self._check_api, daemon=True).start()
+        threading.Thread(target=self._check_api,                daemon=True).start()
         threading.Thread(target=self._fetch_and_render_branches, daemon=True).start()
+        threading.Thread(target=self._load_models,              daemon=True).start()
 
     # ── Data ─────────────────────────────────────────────────────────────────
 
@@ -237,7 +245,7 @@ class GraphMemoryApp(ctk.CTk):
     def _sidebar_label(self, text: str):
         ctk.CTkLabel(
             self.sidebar, text=text,
-            font=ctk.CTkFont(size=9), text_color=COLORS["info"],
+            font=ctk.CTkFont(size=10), text_color="#ffffff",
         ).pack(pady=(8, 2), padx=14, anchor="w")
 
     def _build_sidebar(self):
@@ -246,6 +254,22 @@ class GraphMemoryApp(ctk.CTk):
             font=ctk.CTkFont(size=15, weight="bold"),
             text_color=COLORS["topic"],
         ).pack(pady=(18, 2), padx=14, anchor="w")
+
+        # ── Modelo ───────────────────────────────────────────────────────────
+        self._sidebar_label("MODELO")
+        self.model_menu = ctk.CTkOptionMenu(
+            self.sidebar,
+            values=[self.model],
+            command=self._on_model_change,
+            fg_color=COLORS["border"],
+            button_color="#3a3d4e",
+            button_hover_color="#4a4d5e",
+            dropdown_fg_color=COLORS["sidebar"],
+            font=ctk.CTkFont(size=11),
+            dynamic_resizing=False,
+            width=210,
+        )
+        self.model_menu.pack(padx=10, pady=(0, 6), fill="x")
 
         # ── Conversaciones ───────────────────────────────────────────────────
         self._sidebar_label("CONVERSACIONES")
@@ -444,9 +468,10 @@ class GraphMemoryApp(ctk.CTk):
                 command=lambda n=name: self._show_subtree(n),
                 fg_color="transparent",
                 hover_color=COLORS["border"],
-                text_color="#c4b5fd",
+                text_color="#ffffff",
+                border_width=0,
                 height=26,
-                font=ctk.CTkFont(size=12),
+                font=ctk.CTkFont(size=12, weight="bold"),
                 anchor="w",
                 corner_radius=6,
             ).pack(fill="x", pady=1, padx=4)
@@ -561,6 +586,23 @@ class GraphMemoryApp(ctk.CTk):
     def _set_thinking(self, on: bool):
         self.thinking_label.configure(text="⏳ pensando…" if on else "")
         self.send_btn.configure(state="disabled" if on else "normal")
+
+    def _load_models(self):
+        try:
+            models = fetch_lm_models(self.lmstudio_url)
+            if models:
+                self.after(0, self._update_model_menu, models)
+        except Exception:
+            pass
+
+    def _update_model_menu(self, models: list[str]):
+        self.model_menu.configure(values=models)
+        if self.model not in models:
+            self.model = models[0]
+            self.model_menu.set(self.model)
+
+    def _on_model_change(self, selected: str):
+        self.model = selected
 
     def _check_api(self):
         try:
