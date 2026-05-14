@@ -77,8 +77,9 @@ def fetch_topic_ctx(api: str, topic: str) -> str:
 
 
 def store_message(api: str, message: str) -> list:
-    data = api_post(api, "/conversation", json={"message": message})
-    return data.get("triples", [])
+    r = httpx.post(f"{api}/conversation", json={"message": message}, timeout=120)
+    r.raise_for_status()
+    return r.json().get("triples", [])
 
 
 def save_note(api: str, topic: str, summary: str, entities: list, session_id: str):

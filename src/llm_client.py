@@ -64,11 +64,12 @@ class LMStudioClient:
         )
         self.model = os.getenv("LMSTUDIO_MODEL", "local-model")
 
-    def _call(self, prompt: str, temperature: float = 0.1) -> str:
+    def _call(self, prompt: str, temperature: float = 0.1, timeout: float = 120) -> str:
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
+            timeout=timeout,
         )
         return response.choices[0].message.content.strip()
 
