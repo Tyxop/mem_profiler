@@ -61,12 +61,12 @@ class GraphMemory:
             try:
                 result = s.run(
                     """
-                    CALL db.index.fulltext.queryNodes('entity_search', $query)
+                    CALL db.index.fulltext.queryNodes('entity_search', $term)
                     YIELD node, score
                     RETURN node.name AS name
                     ORDER BY score DESC LIMIT $limit
                     """,
-                    query=query,
+                    term=query,
                     limit=limit,
                 )
                 names = [r["name"] for r in result]
@@ -78,11 +78,11 @@ class GraphMemory:
             result = s.run(
                 """
                 MATCH (e:Entity)
-                WHERE toLower(e.name) CONTAINS toLower($query)
-                   OR toLower(e.type) CONTAINS toLower($query)
+                WHERE toLower(e.name) CONTAINS toLower($term)
+                   OR toLower(e.type) CONTAINS toLower($term)
                 RETURN e.name AS name LIMIT $limit
                 """,
-                query=query,
+                term=query,
                 limit=limit,
             )
             return [r["name"] for r in result]
