@@ -170,5 +170,16 @@ class GraphMemory:
                 object=object_,
             )
 
+    def delete_node(self, name: str):
+        with self.driver.session() as s:
+            s.run(
+                "MATCH (e:Entity {name: $name}) DETACH DELETE e",
+                name=name,
+            )
+
+    def clear_all(self):
+        with self.driver.session() as s:
+            s.run("MATCH (e:Entity) DETACH DELETE e")
+
     def close(self):
         self.driver.close()

@@ -9,6 +9,7 @@ from .models import (
     ContextResponse,
     StoreResponse,
     ProfileBranch,
+    Triple,
 )
 from .graph_db import GraphMemory, BRANCHES
 from .llm_client import LMStudioClient
@@ -104,6 +105,24 @@ def list_branches():
 def delete_triple(subject: str, predicate: str, object: str):
     graph.delete_triple(subject, predicate, object)
     return {"deleted": True}
+
+
+@app.delete("/node/{name}", summary="Elimina un nodo y todas sus relaciones")
+def delete_node(name: str):
+    graph.delete_node(name)
+    return {"deleted": True, "node": name}
+
+
+@app.delete("/graph", summary="Borra todo el grafo")
+def clear_graph():
+    graph.clear_all()
+    return {"cleared": True}
+
+
+@app.post("/api/triple", summary="Añade una tripleta manual al grafo")
+def add_triple_manual(triple: Triple):
+    graph.store_triple(triple)
+    return {"stored": True, "triple": triple}
 
 
 @app.get("/viz", response_class=HTMLResponse, summary="Visualización interactiva del grafo")
